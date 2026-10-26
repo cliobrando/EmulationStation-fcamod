@@ -105,9 +105,8 @@ void toggleWifi(bool enable)
 
 bool isRemoteServicesEnabled()
 {
-    // Check if sshd process is running as indicator
-    std::string result = ArkOSUtil::executeCommand("pgrep -x sshd 2>/dev/null");
-    return !result.empty();
+    std::string result = ArkOSUtil::executeCommand("systemctl is-active ssh.service 2>/dev/null");
+    return Utils::String::trim(result) == "active";
 }
 
 std::string getIpAddress()
@@ -133,60 +132,65 @@ void toggleRemoteServices(bool enable)
             return; // No network connection
         }
 
-        // Enable NetworkManager-wait-online
-        ArkOSUtil::executeCommand("sudo systemctl enable NetworkManager-wait-online 2>/dev/null");
-        ArkOSUtil::executeCommand("sudo systemctl start NetworkManager-wait-online 2>/dev/null");
-
-        // Enable NTP time sync
-        ArkOSUtil::executeCommand("sudo timedatectl set-ntp 1 2>/dev/null");
-
-        // Start Samba services
-        ArkOSUtil::executeCommand("sudo systemctl start smbd 2>/dev/null");
-        ArkOSUtil::executeCommand("sudo systemctl start nmbd 2>/dev/null");
-
-        // Start SSH service
+        // Start SSH only. Samba and its boot behavior are managed separately.
         ArkOSUtil::executeCommand("sudo systemctl start ssh.service 2>/dev/null");
-
-        // Start FileBrowser
-        ArkOSUtil::executeCommand("sudo pkill -f filebrowser 2>/dev/null || true");
-        ArkOSUtil::executeCommand("sudo filebrowser -a 0.0.0.0 -p 80 -d /home/ark/.config/filebrowser.db -r / >/dev/null 2>&1 &");
     } else {
-        // Disable NetworkManager-wait-online
-        ArkOSUtil::executeCommand("sudo systemctl disable NetworkManager-wait-online 2>/dev/null");
-        ArkOSUtil::executeCommand("sudo systemctl stop NetworkManager-wait-online 2>/dev/null");
-
-        // Disable NTP time sync
-        ArkOSUtil::executeCommand("sudo timedatectl set-ntp 0 2>/dev/null");
-
-        // Stop Samba services
-        ArkOSUtil::executeCommand("sudo systemctl stop smbd 2>/dev/null");
-        ArkOSUtil::executeCommand("sudo systemctl stop nmbd 2>/dev/null");
-
-        // Stop SSH service
         ArkOSUtil::executeCommand("sudo systemctl stop ssh.service 2>/dev/null");
-
-        // Stop FileBrowser
-        ArkOSUtil::executeCommand("sudo pkill -f filebrowser 2>/dev/null || true");
     }
 }
 
 bool isRemoteServicesAutoStart()
 {
     std::string result = ArkOSUtil::executeCommand("systemctl is-enabled ssh.service 2>/dev/null");
-    result.erase(std::remove_if(result.begin(), result.end(), ::isspace), result.end());
-    return result.find("enabled") != std::string::npos;
+    return Utils::String::trim(result) == "enabled";
 }
 
 void toggleRemoteServicesAutoStart(bool enable)
 {
     if (enable) {
         ArkOSUtil::executeCommand("sudo systemctl enable ssh.service 2>/dev/null || true");
-        ArkOSUtil::executeCommand("sudo systemctl enable smbd 2>/dev/null || true");
-        ArkOSUtil::executeCommand("sudo systemctl enable nmbd 2>/dev/null || true");
     } else {
         ArkOSUtil::executeCommand("sudo systemctl disable ssh.service 2>/dev/null || true");
-        ArkOSUtil::executeCommand("sudo systemctl disable smbd 2>/dev/null || true");
-        ArkOSUtil::executeCommand("sudo systemctl disable nmbd 2>/dev/null || true");
+    }
+}
+
+bool areSambaServicesEnabled()
+{
+    std::string smbd = ArkOSUtil::executeCommand("systemctl is-active smbd 2>/dev/null");
+    std::string nmbd = ArkOSUtil::executeCommand("systemctl is-active nmbd 2>/dev/null");
+    return Utils::String::trim(smbd) == "active" && Utils::String::trim(nmbd) == "active";
+}
+
+void toggleSambaServices(bool enable)
+{
+    if (enable) {
+        std::string gateway = ArkOSUtil::executeCommand("ip route | awk '/default/ { print $3; exit }' 2>/dev/null");
+        if (Utils::String::trim(gateway).empty())
+            return;
+
+        // Older builds masked Samba when it was disabled. Remove that mask so
+        // the runtime switch can start the services without changing boot policy.
+        ArkOSUtil::executeCommand("sudo systemctl unmask smbd nmbd 2>/dev/null || true");
+        ArkOSUtil::executeCommand("sudo systemctl start smbd nmbd 2>/dev/null");
+    } else {
+        ArkOSUtil::executeCommand("sudo systemctl stop smbd nmbd 2>/dev/null");
+    }
+}
+
+bool areSambaServicesAutoStart()
+{
+    std::string smbd = ArkOSUtil::executeCommand("systemctl is-enabled smbd 2>/dev/null");
+    std::string nmbd = ArkOSUtil::executeCommand("systemctl is-enabled nmbd 2>/dev/null");
+    return Utils::String::trim(smbd) == "enabled" && Utils::String::trim(nmbd) == "enabled";
+}
+
+void toggleSambaServicesAutoStart(bool enable)
+{
+    if (enable) {
+        ArkOSUtil::executeCommand("sudo systemctl unmask smbd nmbd 2>/dev/null || true");
+        ArkOSUtil::executeCommand("sudo systemctl enable smbd nmbd 2>/dev/null || true");
+    } else {
+        ArkOSUtil::executeCommand("sudo systemctl disable smbd nmbd 2>/dev/null || true");
     }
 }
 

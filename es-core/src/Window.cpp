@@ -462,6 +462,22 @@ void Window::render()
 	}
 }
 
+bool Window::needsContinuousUpdate() const
+{
+	if (mScreenSaver && mScreenSaver->isScreenSaverActive())
+		return true;
+	for (auto component : mGuiStack)
+		if (component->needsContinuousUpdate())
+			return true;
+	for (auto component : mScreenExtras)
+		if (component->needsContinuousUpdate())
+			return true;
+	for (auto component : mAsyncNotificationComponent)
+		if (component->needsContinuousUpdate())
+			return true;
+	return false;
+}
+
 void Window::normalizeNextUpdate()
 {
 	mNormalizeNextUpdate = true;

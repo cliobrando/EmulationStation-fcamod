@@ -30,6 +30,7 @@ public:
 	void reset(); // set to frame 0
 
 	void update(int deltaTime) override;
+	bool needsContinuousUpdate() const override { return mVisible && mEnabled && !mFrames.empty(); }
 	void render(const Transform4x4f& trans) override;
 
 	void onSizeChanged() override;

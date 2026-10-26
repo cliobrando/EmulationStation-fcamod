@@ -17,6 +17,10 @@ namespace WifiManager
     void toggleRemoteServices(bool enable);
     bool isRemoteServicesAutoStart();
     void toggleRemoteServicesAutoStart(bool enable);
+    bool areSambaServicesEnabled();
+    void toggleSambaServices(bool enable);
+    bool areSambaServicesAutoStart();
+    void toggleSambaServicesAutoStart(bool enable);
 }
 
 #endif // ES_APP_GUIS_ARKOS4CLONE_WIFIMANAGER_H

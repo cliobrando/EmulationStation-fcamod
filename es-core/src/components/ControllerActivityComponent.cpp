@@ -123,13 +123,13 @@ void ControllerActivityComponent::update(int deltaTime)
 	mWifiFlagThrottle += deltaTime;
 	mBtFlagThrottle += deltaTime;
 
-	if (access("/tmp/es-wifi-changed", F_OK) == 0 && mWifiFlagThrottle >= 2000) {
+	if (mWifiFlagThrottle >= 2000 && access("/tmp/es-wifi-changed", F_OK) == 0) {
 		remove("/tmp/es-wifi-changed");
 		mWifiFlagThrottle = 0;
 		updateNetworkInfo();
 		mNetworkCheckTime = 0;
 	}
-	if (access("/tmp/es-bt-changed", F_OK) == 0 && mBtFlagThrottle >= 2000) {
+	if (mBtFlagThrottle >= 2000 && access("/tmp/es-bt-changed", F_OK) == 0) {
 		remove("/tmp/es-bt-changed");
 		mBtFlagThrottle = 0;
 		updateBluetoothInfo();

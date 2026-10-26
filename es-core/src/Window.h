@@ -65,6 +65,7 @@ public:
 	void input(InputConfig* config, Input input);
 	void update(int deltaTime);
 	void render();
+	bool needsContinuousUpdate() const;
 
 	bool init(bool initRenderer);
 	void deinit(bool deinitRenderer);

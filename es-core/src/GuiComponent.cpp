@@ -65,6 +65,19 @@ void GuiComponent::update(int deltaTime)
 	updateChildren(deltaTime);
 }
 
+bool GuiComponent::needsContinuousUpdate() const
+{
+	if (!mVisible)
+		return false;
+	for (unsigned char i = 0; i < MAX_ANIMATIONS; i++)
+		if (mAnimationMap[i] != NULL)
+			return true;
+	for (auto child : mChildren)
+		if (child->needsContinuousUpdate())
+			return true;
+	return false;
+}
+
 void GuiComponent::render(const Transform4x4f& parentTrans)
 {
 	if (!isVisible())

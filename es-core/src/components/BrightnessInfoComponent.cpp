@@ -16,7 +16,7 @@
 #define VISIBLE_TIME		2650
 #define FADE_TIME			350
 #define BASEOPACITY			100
-#define CHECKBRIGHTNESSDELAY	40
+#define CHECKBRIGHTNESSDELAY	250
 
 BrightnessInfoComponent::BrightnessInfoComponent(Window* window, bool actionLine)
 	: GuiComponent(window)

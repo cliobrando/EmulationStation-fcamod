@@ -685,8 +685,18 @@ int main(int argc, char* argv[])
 
 		SDL_Event event;
 		bool ps_standby = PowerSaver::getState() && (int) SDL_GetTicks() - ps_time > PowerSaver::getMode();
+#ifndef WIN32
+		// Sleep on SDL events while the menu is static. Components with active
+		// animations, video, or a screensaver continue through the normal loop.
+		bool idleWait = (int) SDL_GetTicks() - ps_time > 2000 && !window.needsContinuousUpdate();
+#endif
+		bool waitForEvent = ps_standby || window.isSleeping();
+		int waitTimeout = ps_standby ? PowerSaver::getTimeout() : 1000;
+#ifndef WIN32
+		waitForEvent = waitForEvent || idleWait;
+#endif
 
-		if (ps_standby ? SDL_WaitEventTimeout(&event, PowerSaver::getTimeout()) : SDL_PollEvent(&event))
+		if (waitForEvent ? SDL_WaitEventTimeout(&event, waitTimeout) : SDL_PollEvent(&event))
 		{
 			do
 			{
@@ -698,7 +708,7 @@ int main(int argc, char* argv[])
 			while(SDL_PollEvent(&event));
 
 			// triggered if exiting from SDL_WaitEvent due to event
-			if (ps_standby)
+			if (waitForEvent)
 				// show as if continuing from last event
 				lastTime = SDL_GetTicks();
 
@@ -715,7 +725,8 @@ int main(int argc, char* argv[])
 		if (window.isSleeping())
 		{
 			lastTime = SDL_GetTicks();
-			SDL_Delay(10); // this doesn't need to be accurate, we're just giving up our CPU time until something wakes us up
+			// Sleeping mode waits on SDL events above, so input wakes the UI
+			// immediately without a 100 Hz polling loop.
 			continue;
 		}
 
@@ -757,6 +768,20 @@ int main(int argc, char* argv[])
 		OutputDebugStringA(buffer);
 #endif
 */
+
+#ifndef WIN32
+		// Keep full refresh while the user is interacting, but cap idle menu
+		// redraws to 30 Hz. This avoids rendering an unchanged menu at panel
+		// rate forever on Linux handhelds. SDL event handling remains active
+		// every frame, so input immediately returns the loop to full rate.
+		if ((int)SDL_GetTicks() - ps_time > 2000)
+		{
+			const int idleFrameLimit = 33; // approximately 30 Hz
+			const int frameDuration = SDL_GetTicks() - processStart;
+			if (frameDuration < idleFrameLimit)
+				SDL_Delay(idleFrameLimit - frameDuration);
+		}
+#endif
 	}
 
 	ThreadedScraper::stop();

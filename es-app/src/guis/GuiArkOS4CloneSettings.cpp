@@ -246,14 +246,14 @@ void GuiArkOS4CloneSettings::createWifiSettingsMenu()
     mWifiStatusText->setLineSpacing(1.0f);
     s->addWithLabel(_("CURRENT NETWORK"), mWifiStatusText);
 
-    // Remote Services toggle (SSH, Samba, FileBrowser, NTP)
+    // Remote Services controls SSH only; Samba has independent controls below.
     bool remoteEnabled = isRemoteServicesEnabled();
     auto remoteSwitch = std::make_shared<SwitchComponent>(mWindow);
     remoteSwitch->setState(remoteEnabled);
     remoteSwitch->setOnChangedCallback([this, remoteSwitch] {
         toggleRemoteServices(remoteSwitch->getState());
     });
-    s->addWithLabel(_("REMOTE SERVICES"), remoteSwitch);
+    s->addWithLabel(_("SSH SERVICE"), remoteSwitch);
 
     // Remote Services Auto-Start toggle
     bool autoStartEnabled = isRemoteServicesAutoStart();
@@ -262,7 +262,23 @@ void GuiArkOS4CloneSettings::createWifiSettingsMenu()
     autoStartSwitch->setOnChangedCallback([this, autoStartSwitch] {
         toggleRemoteServicesAutoStart(autoStartSwitch->getState());
     });
-    s->addWithLabel(_("REMOTE SERVICES AUTO-START"), autoStartSwitch);
+    s->addWithLabel(_("SSH AUTO-START"), autoStartSwitch);
+
+    bool sambaEnabled = areSambaServicesEnabled();
+    auto sambaSwitch = std::make_shared<SwitchComponent>(mWindow);
+    sambaSwitch->setState(sambaEnabled);
+    sambaSwitch->setOnChangedCallback([sambaSwitch] {
+        toggleSambaServices(sambaSwitch->getState());
+    });
+    s->addWithLabel(_("SAMBA SERVICES"), sambaSwitch);
+
+    bool sambaAutoStartEnabled = areSambaServicesAutoStart();
+    auto sambaAutoStartSwitch = std::make_shared<SwitchComponent>(mWindow);
+    sambaAutoStartSwitch->setState(sambaAutoStartEnabled);
+    sambaAutoStartSwitch->setOnChangedCallback([sambaAutoStartSwitch] {
+        toggleSambaServicesAutoStart(sambaAutoStartSwitch->getState());
+    });
+    s->addWithLabel(_("SAMBA SERVICES AUTO-START"), sambaAutoStartSwitch);
 
     // IP Address display
     std::string ipAddress = getIpAddress();

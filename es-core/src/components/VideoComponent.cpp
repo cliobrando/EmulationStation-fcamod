@@ -89,6 +89,11 @@ VideoComponent::VideoComponent(Window* window) :
 		Utils::FileSystem::createDirectory(path);
 }
 
+bool VideoComponent::needsContinuousUpdate() const
+{
+	return mVisible && (mIsPlaying || mStartDelayed || mIsWaitingForVideoToStart);
+}
+
 VideoComponent::~VideoComponent()
 {
 	// Stop any currently running video

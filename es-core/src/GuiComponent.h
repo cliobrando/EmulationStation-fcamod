@@ -49,6 +49,7 @@ public:
 
 	//Called when time passes.  Default implementation calls updateSelf(deltaTime) and updateChildren(deltaTime) - so you should probably call GuiComponent::update(deltaTime) at some point (or at least updateSelf so animations work).
 	virtual void update(int deltaTime);
+	virtual bool needsContinuousUpdate() const;
 
 	//Called when it's time to render.  By default, just calls renderChildren(parentTrans * getTransform()).
 	//You probably want to override this like so:

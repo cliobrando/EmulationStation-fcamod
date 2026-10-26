@@ -17,6 +17,7 @@ public:
 
 	void render(const Transform4x4f& parentTrans) override;
 	void update(int deltaTime) override;
+	bool needsContinuousUpdate() const override { return mVisible && mDisplayTime >= 0; }
 
 	void reset() { mVolume = -1; }
 
