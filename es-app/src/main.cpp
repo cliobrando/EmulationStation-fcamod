@@ -24,6 +24,8 @@
 #include <SDL_timer.h>
 #include <iostream>
 #include <time.h>
+#include <sys/socket.h>
+#include <sys/un.h>
 
 #if defined(_WIN32)
 #include <Windows.h>
@@ -412,6 +414,32 @@ void processAudioTitles(Window* window)
 #include "guis/arkos4clone/SdCardControl.h"
 #include "components/BatteryIndicatorComponent.h"
 
+// systemd Type=notify support: report readiness so plymouth-quit stays ordered
+// behind the first rendered frame (splash keeps animating while ES warms up)
+static void es_sd_notify_ready()
+{
+	const char* sock = getenv("NOTIFY_SOCKET");
+	if (!sock || !*sock)
+		return;
+	struct sockaddr_un sa;
+	memset(&sa, 0, sizeof(sa));
+	sa.sun_family = AF_UNIX;
+	bool abstract = (sock[0] == '@');
+	const char* path = abstract ? sock + 1 : sock;
+	size_t plen = strlen(path);
+	if (plen >= sizeof(sa.sun_path) - (abstract ? 0 : 1))
+		return;
+	memcpy(sa.sun_path, path, plen);
+	if (abstract)
+		sa.sun_path[0] = '\0';
+	int fd = socket(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC, 0);
+	if (fd < 0)
+		return;
+	size_t len = offsetof(struct sockaddr_un, sun_path) + plen + (abstract ? 1 : 0);
+	sendto(fd, "READY=1\nSTATUS=Drawing UI\n", 26, 0, (struct sockaddr*)&sa, (socklen_t)len);
+	close(fd);
+}
+
 int main(int argc, char* argv[])
 {
 	srand((unsigned int)time(NULL));
@@ -526,6 +554,11 @@ int main(int argc, char* argv[])
 	Log::init();	
 	LOG(LogInfo) << "EmulationStation - v" << PROGRAM_VERSION_STRING << ", built " << PROGRAM_BUILT_STRING;
 
+	// BOOTTIMING helper: ms since program start for each startup phase
+	const Uint32 es_boot_ticks(SDL_GetTicks());
+#define ES_LOG_PHASE(name) \
+	LOG(LogInfo) << "BOOTTIMING " << name << " " << (int)(SDL_GetTicks() - es_boot_ticks)<< " ms"
+
 	//always close the log on exit
 	atexit(&onExit);
 
@@ -550,6 +583,7 @@ int main(int argc, char* argv[])
 			LOG(LogError) << "Window failed to initialize!";
 			return 1;
 		}
+		ES_LOG_PHASE("window-init");
 
 		// Set battery state callback for power LED updates
 		window.getBatteryIndicator()->setBatteryStateCallback([](int level, bool charging) {
@@ -557,7 +591,17 @@ int main(int argc, char* argv[])
 		});
 
 		if (splashScreen)
+		{
 			window.renderLoadingScreen(_("Loading..."));
+
+			// Handover from the plymouth boot splash: the loading screen has
+			// been drawn, so stop the splash daemon from painting (it keeps
+			// the last frame underneath; ES redraws over it every frame).
+			// deactivate is a lightweight reply, unlike quit which tears the
+			// daemon down and takes seconds under boot I/O contention (and
+			// blots the screen). sudo -n (NOPASSWD); no-op if not running.
+			system("[ -e /run/plymouth/pid ] && sudo -n /bin/plymouth deactivate >/dev/null 2>&1 &");
+		}
 	}
 
 	const char* errorMsg = NULL;
@@ -655,8 +699,9 @@ int main(int argc, char* argv[])
 		if (Utils::FileSystem::exists(InputManager::getConfigPath()) && InputManager::getInstance()->getNumConfiguredDevices() > 0)
 			ViewController::get()->goToStart(true);
 		else
-			window.pushGui(new GuiDetectDevice(&window, true, [] { ViewController::get()->goToStart(true); }));		
+			window.pushGui(new GuiDetectDevice(&window, true, [] { ViewController::get()->goToStart(true); }));
 	}
+	ES_LOG_PHASE("ui-start");
 
 	//generate joystick events since we're done loading
 	SDL_JoystickEventState(SDL_ENABLE);
@@ -687,6 +732,9 @@ int main(int argc, char* argv[])
 	int exitMode = 0;
 
 	bool running = true;
+
+	ES_LOG_PHASE("loop-start");
+	es_sd_notify_ready();
 
 	while(running)
 	{
