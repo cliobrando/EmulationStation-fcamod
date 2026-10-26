@@ -599,8 +599,11 @@ int main(int argc, char* argv[])
 			// the last frame underneath; ES redraws over it every frame).
 			// deactivate is a lightweight reply, unlike quit which tears the
 			// daemon down and takes seconds under boot I/O contention (and
-			// blots the screen). sudo -n (NOPASSWD); no-op if not running.
-			system("[ -e /run/plymouth/pid ] && sudo -n /bin/plymouth deactivate >/dev/null 2>&1 &");
+			// blots the screen). The daemon is fully quit two seconds later
+			// so the shutdown/reboot path can start a fresh plymouthd (a
+			// leftover deactivated daemon held the splash frozen there).
+			// sudo -n (NOPASSWD); both calls fail quietly if plymouth is gone.
+			system("( [ -e /run/plymouth/pid ] && sudo -n /bin/plymouth deactivate >/dev/null 2>&1; sleep 2; sudo -n /bin/plymouth quit >/dev/null 2>&1 ) &");
 		}
 	}
 
