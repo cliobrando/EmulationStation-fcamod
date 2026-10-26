@@ -83,9 +83,12 @@ void Settings::setDefaults()
 	mBoolMap["FullscreenBorderless"] = false;
 #endif
 
-	// Park (exit) EmulationStation while a game runs, wrapper restarts it
-	// afterwards: frees ~200 MB for the emulator on 1 GB handhelds.
-	mBoolMap["ExitOnGameLaunch"] = true;
+	// Opt-in: park (exit) EmulationStation while a game runs and let the
+	// wrapper restart the service afterwards — frees ~200 MB for the
+	// emulator. Off by default: on rk3326's CRTC/GPU the mode needs more
+	// device-state handling than the plain truncated screen provides
+	// (tested leaving a black screen with the game never started).
+	mBoolMap["ExitOnGameLaunch"] = false;
 
 	mBoolMap["Windowed"] = false;
 	mBoolMap["SplashScreen"] = true;
