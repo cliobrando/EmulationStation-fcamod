@@ -77,14 +77,15 @@ void Settings::setDefaults()
 
 #if WIN32
 	mBoolMap["ShowOnlyExit"] = true;
-	// Park (exit) EmulationStation while a game runs, wrapper restarts it
-	// afterwards: frees ~200 MB for the emulator on 1 GB handhelds.
-	mBoolMap["ExitOnGameLaunch"] = true;
 	mBoolMap["FullscreenBorderless"] = true;
 #else
 	mBoolMap["ShowOnlyExit"] = false;
 	mBoolMap["FullscreenBorderless"] = false;
 #endif
+
+	// Park (exit) EmulationStation while a game runs, wrapper restarts it
+	// afterwards: frees ~200 MB for the emulator on 1 GB handhelds.
+	mBoolMap["ExitOnGameLaunch"] = true;
 
 	mBoolMap["Windowed"] = false;
 	mBoolMap["SplashScreen"] = true;
