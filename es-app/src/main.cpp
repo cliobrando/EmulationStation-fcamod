@@ -1,4 +1,5 @@
 #include <string>
+#include <malloc.h>
 //EmulationStation, a graphical front-end for ROM browsing. Created by Alec "Aloshi" Lofquist.
 //http://www.aloshi.com
 
@@ -415,6 +416,14 @@ int main(int argc, char* argv[])
 {
 	srand((unsigned int)time(NULL));
 
+	// Long browsing sessions retain gamelist metadata, textures and video
+	// buffers in this process's heap; on 1 GB handhelds glibc otherwise grows
+	// a per-thread arena per render/decode thread and never returns freed
+	// memory, so RSS balloons past ~500 MB. Cap the arenas and let the idle
+	// loop trim the heap back to the live working set.
+	mallopt(M_ARENA_MAX, 2);
+	mallopt(M_TRIM_THRESHOLD, 512 * 1024);
+
 #if WIN32
 	std::locale::global(std::locale("en-US"));
 	setlocale(LC_NUMERIC, "C");
@@ -728,6 +737,29 @@ int main(int argc, char* argv[])
 			// Sleeping mode waits on SDL events above, so input wakes the UI
 			// immediately without a 100 Hz polling loop.
 			continue;
+		}
+
+		// While the menu is idle (no input for a while and nothing animating),
+		// hand freed pages back to the OS. Browsing systems/games retains
+		// metadata, textures and video decode buffers in the heap; without
+		// this they accumulate until OOM on 1 GB devices.
+		{
+			static int s_lastTrim = 0;
+			const int now = SDL_GetTicks();
+			if (now - ps_time > 15000 && now - s_lastTrim > 60000)
+			{
+				malloc_trim(0);
+				s_lastTrim = now;
+			}
+		}
+		{
+			static int s_lastTrim = 0;
+			const int now = SDL_GetTicks();
+			if (now - s_lastTrim > 60000)
+			{
+				malloc_trim(0);
+				s_lastTrim = now;
+			}
 		}
 
 		int curTime = SDL_GetTicks();
