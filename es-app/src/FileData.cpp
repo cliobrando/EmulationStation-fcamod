@@ -17,6 +17,9 @@
 #include "Window.h"
 #include "views/UIModeController.h"
 #include <assert.h>
+#include <fstream>
+#include <sys/stat.h>
+#include <unistd.h>
 #include "Gamelist.h"
 #include "guis/arkos4clone/FreqProfile.h"
 #include <algorithm>
@@ -346,6 +349,52 @@ void FileData::launchGame(Window* window)
 	FreqProfile::GameFreqGuard freqGuard(getSystemName());
 
 	LOG(LogInfo) << "	" << command;
+
+	// Exit-while-playing: instead of blocking here for the whole game (ES
+	// otherwise holds ~200 MB of UI memory in RAM while the emulator needs
+	// it), spawn a detached wrapper that runs the game and restarts the
+	// emulationstation service afterwards, then exit. Requires systemd.
+	// Opt out with <bool name="ExitOnGameLaunch" value="false" /> in
+	// es_settings.cfg.
+	static bool exitMode = Settings::getInstance()->getBool("ExitOnGameLaunch")
+		&& (access("/run/systemd/system", F_OK) == 0);
+	if (exitMode)
+	{
+		const std::string wrapperPath = "/tmp/.es-game-run.sh";
+		LOG(LogInfo) << "	ExitOnGameLaunch: parking EmulationStation, wrapper " << wrapperPath;
+		{
+			std::ofstream wrapper(wrapperPath.c_str(), std::ios::trunc);
+			wrapper << "#!/bin/sh\n"
+				"# Spawned by EmulationStation on game launch: run the game,\n"
+				"# then bring the emulationstation UI service back up on exit.\n"
+				"rm -f /tmp/.es-game-run.rc\n"
+				<< command << "\n"
+				"echo \"$?\" > /tmp/.es-game-run.rc\n"
+				"systemctl start emulationstation.service >/dev/null 2>&1\n";
+		}
+		// Fully detached so the wrapper survives our own exit
+		if (system("setsid sh /tmp/.es-game-run.sh >/dev/null 2>&1 </dev/null &") != 0)
+			LOG(LogWarning) << "	ExitOnGameLaunch: failed to spawn the game wrapper";
+
+		// ES will not be alive when the emulator returns, so credit the game
+		// here. Same guards as the success path below.
+		if (!(Utils::FileSystem::exists("/usr/local/bin/quickmode.sh")))
+		{
+			FileData* gameToUpdate = getSourceFileData();
+
+			int timesPlayed = gameToUpdate->getMetadata().getInt("playcount") + 1;
+			gameToUpdate->getMetadata().set("playcount", std::to_string(static_cast<long long>(timesPlayed)));
+
+			gameToUpdate->getMetadata().set("lastplayed", Utils::Time::DateTime(Utils::Time::now()));
+			CollectionSystemManager::get()->refreshCollectionSystems(gameToUpdate);
+
+			saveToGamelistRecovery(gameToUpdate);
+		}
+
+		// Clean exit (code 0): Restart=on-failure keeps the service parked
+		// until the wrapper brings it back.
+		exit(0);
+	}
 
 	int exitCode = runSystemCommand(command, getDisplayName(), hideWindow ? NULL : window);
 	if (exitCode != 0)
