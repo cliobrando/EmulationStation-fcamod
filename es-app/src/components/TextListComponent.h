@@ -42,6 +42,7 @@ public:
 	
 	bool input(InputConfig* config, Input input) override;
 	void update(int deltaTime) override;
+	bool needsContinuousUpdate() const override { return mMarqueeActive || IList<TextListData, T>::needsContinuousUpdate(); }
 	void render(const Transform4x4f& parentTrans) override;
 	void applyTheme(const std::shared_ptr<ThemeData>& theme, const std::string& view, const std::string& element, unsigned int properties) override;
 
@@ -89,6 +90,7 @@ private:
 	int mMarqueeOffset;
 	int mMarqueeOffset2;
 	int mMarqueeTime;
+	bool mMarqueeActive;
 
 	Alignment mAlignment;
 	float mHorizontalMargin;
@@ -118,6 +120,7 @@ TextListComponent<T>::TextListComponent(Window* window) :
 	mMarqueeOffset = 0;
 	mMarqueeOffset2 = 0;
 	mMarqueeTime = 0;
+	mMarqueeActive = false;
 
 	mHorizontalMargin = 0;
 	mAlignment = ALIGN_CENTER;
@@ -310,6 +313,7 @@ template <typename T>
 void TextListComponent<T>::update(int deltaTime)
 {
 	listUpdate(deltaTime);
+	mMarqueeActive = false;
 
 	if(!isScrolling() && size() > 0)
 	{
@@ -323,6 +327,8 @@ void TextListComponent<T>::update(int deltaTime)
 
 		if(textLength > limit)
 		{
+			mMarqueeActive = true;
+
 			// loop
 			// pixels per second ( based on nes-mini font at 1920x1080 to produce a speed of 200 )
 			const float speed        = mFont->sizeText("ABCDEFGHIJKLMNOPQRSTUVWXYZ").x() * 0.247f;
@@ -366,6 +372,7 @@ void TextListComponent<T>::onCursorChanged(const CursorState& state)
 	mMarqueeOffset = 0;
 	mMarqueeOffset2 = 0;
 	mMarqueeTime = 0;
+	mMarqueeActive = false;
 
 	if(mCursorChangedCallback)
 		mCursorChangedCallback(state);

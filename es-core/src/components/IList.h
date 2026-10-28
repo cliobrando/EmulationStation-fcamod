@@ -100,6 +100,12 @@ public:
 		return (mScrollVelocity != 0 && mScrollTier > 0);
 	}
 
+	bool needsContinuousUpdate() const override
+	{
+		// held-direction repeat runs from update(), not from new SDL events
+		return mScrollVelocity != 0 || mTitleOverlayOpacity > 0 || GuiComponent::needsContinuousUpdate();
+	}
+
 	int getScrollingVelocity()
 	{
 		return mScrollVelocity;

@@ -16,6 +16,7 @@ public:
 	void reset();
 
 	void update(int deltaTime) override;
+	bool needsContinuousUpdate() const override { return mAutoScrollActive || GuiComponent::needsContinuousUpdate(); }
 	void render(const Transform4x4f& parentTrans) override;
 
 private:
@@ -28,6 +29,7 @@ private:
 	int mAutoScrollAccumulator;
 	bool mAtEnd;
 	int mAutoScrollResetAccumulator;
+	bool mAutoScrollActive; // auto-scroll enabled and the content overflows
 };
 
 #endif // ES_CORE_COMPONENTS_SCROLLABLE_CONTAINER_H

@@ -751,7 +751,9 @@ int main(int argc, char* argv[])
 		bool idleWait = (int) SDL_GetTicks() - ps_time > 2000 && !window.needsContinuousUpdate();
 #endif
 		bool waitForEvent = ps_standby || window.isSleeping();
-		int waitTimeout = ps_standby ? PowerSaver::getTimeout() : 1000;
+		// Volume/brightness keys are not SDL events; their overlays poll every
+		// 250 ms in update(), so an idle wait must wake at least that often.
+		int waitTimeout = ps_standby ? PowerSaver::getTimeout() : (window.isSleeping() ? 1000 : 250);
 #ifndef WIN32
 		waitForEvent = waitForEvent || idleWait;
 #endif
@@ -790,7 +792,7 @@ int main(int argc, char* argv[])
 			continue;
 		}
 
-		// While the menu is idle (no input for a while and nothing animating),
+		// While the menu is idle (no input for 15 s),
 		// hand freed pages back to the OS. Browsing systems/games retains
 		// metadata, textures and video decode buffers in the heap; without
 		// this they accumulate until OOM on 1 GB devices.
@@ -798,15 +800,6 @@ int main(int argc, char* argv[])
 			static int s_lastTrim = 0;
 			const int now = SDL_GetTicks();
 			if (now - ps_time > 15000 && now - s_lastTrim > 60000)
-			{
-				malloc_trim(0);
-				s_lastTrim = now;
-			}
-		}
-		{
-			static int s_lastTrim = 0;
-			const int now = SDL_GetTicks();
-			if (now - s_lastTrim > 60000)
 			{
 				malloc_trim(0);
 				s_lastTrim = now;

@@ -21,6 +21,7 @@ public:
 
 	bool input(InputConfig* config, Input input) override;
 	void update(int deltaTime) override;
+	bool needsContinuousUpdate() const override { return mMoveRate != 0 || GuiComponent::needsContinuousUpdate(); }
 	void render(const Transform4x4f& parentTrans) override;
 
 	void onSizeChanged() override;

@@ -14,6 +14,7 @@ TextComponent::TextComponent(Window* window) : GuiComponent(window),
 	mMarqueeOffset = 0;
 	mMarqueeOffset2 = 0;
 	mMarqueeTime = 0;
+	mMarqueeActive = false;
 
 	mAutoScroll = false;
 
@@ -36,6 +37,7 @@ TextComponent::TextComponent(Window* window, const std::string& text, const std:
 	mMarqueeOffset = 0;
 	mMarqueeOffset2 = 0;
 	mMarqueeTime = 0;
+	mMarqueeActive = false;
 
 	mAutoScroll = false;
 }
@@ -361,6 +363,8 @@ void TextComponent::update(int deltaTime)
 	int sy = mSize.y() - mPadding.y() - mPadding.w();
 	const bool isMultiline = !mAutoScroll && (mSize.y() == 0 || sy > mFont->getHeight()*1.95f);
 
+	mMarqueeActive = false;
+
 	if (mAutoScroll && !isMultiline && mSize.x() > 0)
 	{
 		// always reset the marquee offsets
@@ -375,6 +379,8 @@ void TextComponent::update(int deltaTime)
 		
 		if (textLength > limit)
 		{
+			mMarqueeActive = true;
+
 			// loop
 			// pixels per second ( based on nes-mini font at 1920x1080 to produce a speed of 200 )
 			const float speed = mFont->sizeText("ABCDEFGHIJKLMNOPQRSTUVWXYZ").x() * 0.247f;

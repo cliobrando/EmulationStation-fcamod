@@ -9,7 +9,7 @@
 #define AUTO_SCROLL_SPEED 50 // ms between scrolls
 
 ScrollableContainer::ScrollableContainer(Window* window) : GuiComponent(window),
-	mAutoScrollDelay(0), mAutoScrollSpeed(0), mAutoScrollAccumulator(0), mScrollPos(0, 0), mScrollDir(0, 0), mAutoScrollResetAccumulator(0)
+	mAutoScrollDelay(0), mAutoScrollSpeed(0), mAutoScrollAccumulator(0), mScrollPos(0, 0), mScrollDir(0, 0), mAutoScrollResetAccumulator(0), mAutoScrollActive(false)
 {
 }
 
@@ -83,6 +83,7 @@ void ScrollableContainer::update(int deltaTime)
 		mScrollPos[1] = 0;
 
 	const Vector2f contentSize = getContentSize();
+	mAutoScrollActive = mAutoScrollSpeed != 0 && contentSize.y() > getSize().y();
 	if(mScrollPos.x() + getSize().x() > contentSize.x())
 	{
 		mScrollPos[0] = contentSize.x() - getSize().x();

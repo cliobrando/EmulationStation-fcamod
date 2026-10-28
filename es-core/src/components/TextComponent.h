@@ -50,6 +50,7 @@ public:
 	void setPadding(const Vector4f padding) { mPadding = padding; }
 
 	virtual void update(int deltaTime);
+	bool needsContinuousUpdate() const override { return mMarqueeActive || GuiComponent::needsContinuousUpdate(); }
 
 	bool getAutoScroll() { return mAutoScroll; }
 	void setAutoScroll(bool value);
@@ -90,6 +91,7 @@ private:
 	int mMarqueeOffset;
 	int mMarqueeOffset2;
 	int mMarqueeTime;
+	bool mMarqueeActive;
 
 	bool mAutoScroll;
 };
