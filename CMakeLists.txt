@@ -84,6 +84,21 @@ else()
     add_definitions(-DNO_VIDEO_PLAYER)
 endif()
 
+# Hardware video decoding on Rockchip VPUs (MPP), used before VLC when available.
+# ES_VIDEO_DEPS_INCLUDE points at the libav*/libsw* and rockchip/ headers.
+option(ENABLE_MPP_VIDEO "Decode H.264 videos on the Rockchip VPU through MPP" OFF)
+if(ENABLE_MPP_VIDEO)
+    find_library(MPP_LIBRARY rockchip_mpp REQUIRED)
+    find_library(AVFORMAT_LIBRARY avformat REQUIRED)
+    find_library(AVCODEC_LIBRARY avcodec REQUIRED)
+    find_library(AVUTIL_LIBRARY avutil REQUIRED)
+    find_library(SWSCALE_LIBRARY swscale REQUIRED)
+    find_library(SWRESAMPLE_LIBRARY swresample REQUIRED)
+    set(MPP_VIDEO_LIBRARIES ${MPP_LIBRARY} ${AVFORMAT_LIBRARY} ${AVCODEC_LIBRARY} ${AVUTIL_LIBRARY} ${SWSCALE_LIBRARY} ${SWRESAMPLE_LIBRARY})
+    add_definitions(-DHAVE_MPP)
+    message(STATUS "MPP video decoding enabled")
+endif()
+
 # OpenGL/EGL dependencies
 if(${GLSystem} MATCHES "Desktop OpenGL")
     pkg_check_modules(OPENGL REQUIRED gl)
@@ -173,6 +188,10 @@ if(VLC_FOUND)
     LIST(APPEND COMMON_INCLUDE_DIRS ${VLC_INCLUDE_DIRS})
 endif()
 
+if(ENABLE_MPP_VIDEO AND ES_VIDEO_DEPS_INCLUDE)
+    LIST(APPEND COMMON_INCLUDE_DIRS ${ES_VIDEO_DEPS_INCLUDE})
+endif()
+
 if(CEC_FOUND)
     LIST(APPEND COMMON_INCLUDE_DIRS ${CEC_INCLUDE_DIRS})
 endif()
@@ -227,6 +246,10 @@ set(COMMON_LIBRARIES
 
 if(VLC_FOUND)
     LIST(APPEND COMMON_LIBRARIES ${VLC_LIBRARIES})
+endif()
+
+if(ENABLE_MPP_VIDEO)
+    LIST(APPEND COMMON_LIBRARIES ${MPP_VIDEO_LIBRARIES})
 endif()
 
 if(CEC_FOUND)
