@@ -85,16 +85,12 @@ else()
 endif()
 
 # Hardware video decoding on Rockchip VPUs (MPP), used before VLC when available.
-# ES_VIDEO_DEPS_INCLUDE points at the libav*/libsw* and rockchip/ headers.
+# ffmpeg and librockchip_mpp are dlopen'ed at the first video, so only their
+# headers are needed here: ES_VIDEO_DEPS_INCLUDE points at the libav*/libsw*
+# and rockchip/ headers.
 option(ENABLE_MPP_VIDEO "Decode H.264 videos on the Rockchip VPU through MPP" OFF)
 if(ENABLE_MPP_VIDEO)
-    find_library(MPP_LIBRARY rockchip_mpp REQUIRED)
-    find_library(AVFORMAT_LIBRARY avformat REQUIRED)
-    find_library(AVCODEC_LIBRARY avcodec REQUIRED)
-    find_library(AVUTIL_LIBRARY avutil REQUIRED)
-    find_library(SWSCALE_LIBRARY swscale REQUIRED)
-    find_library(SWRESAMPLE_LIBRARY swresample REQUIRED)
-    set(MPP_VIDEO_LIBRARIES ${MPP_LIBRARY} ${AVFORMAT_LIBRARY} ${AVCODEC_LIBRARY} ${AVUTIL_LIBRARY} ${SWSCALE_LIBRARY} ${SWRESAMPLE_LIBRARY})
+    set(MPP_VIDEO_LIBRARIES ${CMAKE_DL_LIBS})
     add_definitions(-DHAVE_MPP)
     message(STATUS "MPP video decoding enabled")
 endif()
