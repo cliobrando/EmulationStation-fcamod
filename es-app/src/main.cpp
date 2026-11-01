@@ -451,6 +451,7 @@ int main(int argc, char* argv[])
 	// loop trim the heap back to the live working set.
 	mallopt(M_ARENA_MAX, 2);
 	mallopt(M_TRIM_THRESHOLD, 512 * 1024);
+	mallopt(M_MMAP_THRESHOLD, 128 * 1024);
 
 #if WIN32
 	std::locale::global(std::locale("en-US"));
