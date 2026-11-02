@@ -603,8 +603,11 @@ int main(int argc, char* argv[])
 			// blots the screen). The daemon is fully quit two seconds later
 			// so the shutdown/reboot path can start a fresh plymouthd (a
 			// leftover deactivated daemon held the splash frozen there).
+			// --retain-splash: without it plymouth writes the boot messages it
+			// collected to the text console when it quits, and they show
+			// whenever the console is on screen; tty1 is then cleared too.
 			// sudo -n (NOPASSWD); both calls fail quietly if plymouth is gone.
-			system("( [ -e /run/plymouth/pid ] && sudo -n /bin/plymouth deactivate >/dev/null 2>&1; sleep 2; sudo -n /bin/plymouth quit >/dev/null 2>&1 ) &");
+			system("( [ -e /run/plymouth/pid ] && sudo -n /bin/plymouth deactivate >/dev/null 2>&1; sleep 2; sudo -n /bin/plymouth quit --retain-splash >/dev/null 2>&1; printf '\\033c' > /dev/tty1 2>/dev/null ) &");
 		}
 	}
 
