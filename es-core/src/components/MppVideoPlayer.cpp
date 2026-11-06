@@ -17,6 +17,7 @@ extern "C" {
 #include <libavcodec/bsf.h>
 #include <libavutil/channel_layout.h>
 #include <libswscale/swscale.h>
+#include <rockchip-rga/RgaApi.h>
 #include <libswresample/swresample.h>
 }
 
@@ -88,6 +89,7 @@ extern "C" {
 	X(MPP, mpp_buffer_group_put) \
 	X(MPP, mpp_buffer_group_limit_config) \
 	X(MPP, mpp_buffer_get_ptr_with_caller) \
+	X(MPP, mpp_buffer_get_fd_with_caller) \
 	X(MPP, mpp_buffer_sync_begin_f) \
 	X(MPP, mpp_buffer_sync_end_f)
 
@@ -110,6 +112,33 @@ static struct
 } sLib;
 
 #define LIB(name) sLib.name
+
+// RGA is optional: the 2D engine converts NV12 straight from the decoder's
+// buffer, so the CPU never reads the frame. Without it, swscale does the work.
+typedef int (*RgaInitFn)();
+typedef int (*RgaBlitFn)(rga_info_t* src, rga_info_t* dst, rga_info_t* src1);
+static RgaBlitFn sRgaBlit = nullptr;
+
+static bool loadRga()
+{
+	static int state = -1;
+	if (state >= 0)
+		return state == 1;
+
+	state = 0;
+	void* handle = dlopen("librga.so.2", RTLD_NOW | RTLD_LOCAL);
+	if (!handle)
+		return false;
+
+	RgaInitFn init = (RgaInitFn)dlsym(handle, "c_RkRgaInit");
+	sRgaBlit = (RgaBlitFn)dlsym(handle, "c_RkRgaBlit");
+	if (!init || !sRgaBlit || init() != 0)
+		return false;
+
+	LOG(LogInfo) << "MppVideoPlayer: RGA colour conversion available";
+	state = 1;
+	return true;
+}
 
 // Loads everything once; false (and VLC playback) if anything is missing.
 static bool loadVideoLibs()
@@ -175,7 +204,7 @@ MppVideoPlayer::MppVideoPlayer() :
 	mFormat(nullptr), mBsf(nullptr), mAudioCodec(nullptr), mPacket(nullptr), mAudioFrame(nullptr),
 	mSws(nullptr), mSwr(nullptr), mVideoStream(-1), mAudioStream(-1), mWidth(0), mHeight(0),
 	mMpp(nullptr), mMpi(nullptr), mFrameGroup(nullptr), mFrameEos(false),
-	mAudioDevice(0), mWithAudio(false), mContext(nullptr), mOutWidth(0), mOutHeight(0), mStartTime(0),
+	mAudioDevice(0), mWithAudio(false), mUseRga(true), mContext(nullptr), mOutWidth(0), mOutHeight(0), mStartTime(0),
 	mClockStart(-1), mFirstPts(0), mStop(false), mEnded(false), mRestart(false)
 {
 }
@@ -508,6 +537,57 @@ void MppVideoPlayer::presentFrame(void* f)
 	int hstride = LIB(mpp_frame_get_hor_stride)(frame);
 	int vstride = LIB(mpp_frame_get_ver_stride)(frame);
 	MppBuffer buffer = LIB(mpp_frame_get_buffer)(frame);
+
+	// same double-buffer protocol as the VLC lock/unlock callbacks
+	VideoContext* c = mContext;
+
+	bool useRga = mUseRga && loadRga();
+	int rgaFd = useRga ? LIB(mpp_buffer_get_fd_with_caller)(buffer, __FUNCTION__) : -1;
+	if (useRga && rgaFd >= 0)
+	{
+		int target_surface = c->surfaceId ^ 1;
+		c->mutexes[target_surface].lock();
+		c->hasFrame[target_surface] = false;
+
+		rga_info_t src;
+		memset(&src, 0, sizeof(src));
+		src.fd = rgaFd;
+		src.mmuFlag = 1;
+		src.scale_mode = 2;
+		src.rect.width = width & ~1;
+		src.rect.height = height & ~1;
+		src.rect.wstride = hstride;
+		src.rect.hstride = vstride;
+		src.rect.format = RK_FORMAT_YCbCr_420_SP;
+
+		rga_info_t dst;
+		memset(&dst, 0, sizeof(dst));
+		dst.fd = -1;
+		dst.virAddr = c->surfaces[target_surface];
+		dst.mmuFlag = 1;
+		dst.rect.width = mOutWidth;
+		dst.rect.height = mOutHeight;
+		dst.rect.wstride = mOutWidth;
+		dst.rect.hstride = mOutHeight;
+		dst.rect.format = RK_FORMAT_RGBA_8888;
+
+		bool blitted = sRgaBlit(&src, &dst, nullptr) == 0;
+		if (blitted)
+		{
+			c->surfaceId = target_surface;
+			c->hasFrame[target_surface] = true;
+			c->mutexes[target_surface].unlock();
+
+			if (c->valid && c->component != nullptr && !c->component->isPlaying() && c->component->isWaitingForVideoToStart())
+				c->component->onVideoStarted();
+			return;
+		}
+
+		c->mutexes[target_surface].unlock();
+		LOG(LogWarning) << "MppVideoPlayer: RGA blit failed, using swscale";
+		mUseRga = false;
+	}
+
 	unsigned char* base = (unsigned char*)LIB(mpp_buffer_get_ptr_with_caller)(buffer, __FUNCTION__);
 	if (!base)
 		return;
@@ -520,8 +600,6 @@ void MppVideoPlayer::presentFrame(void* f)
 	const uint8_t* src[2] = { base, base + (size_t)hstride * vstride };
 	const int srcStride[2] = { hstride, hstride };
 
-	// same double-buffer protocol as the VLC lock/unlock callbacks
-	VideoContext* c = mContext;
 	int target_surface = c->surfaceId ^ 1;
 	c->mutexes[target_surface].lock();
 	c->hasFrame[target_surface] = false;

@@ -65,6 +65,7 @@ private:
 	AVPacket*			mPacket;
 	AVFrame*			mAudioFrame;
 	SwsContext*			mSws;
+	bool				mUseRga;
 	SwrContext*			mSwr;
 	int					mVideoStream;
 	int					mAudioStream;
