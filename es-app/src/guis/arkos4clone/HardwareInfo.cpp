@@ -345,11 +345,13 @@ std::string getSdCardSpeed(const std::string& device)
     // Parse existing kernel dmesg output
     // Format: "mmc0: new high speed SDXC card at address 0001"
     // Format: "mmc0: new ultra high speed SDR104 SDHC card at address 0001"
+    // Newer kernels: "mmc0: new UHS-I speed SDR104 SDXC card at address 1234"
     std::string dmesgLine = ArkOSUtil::executeCommand("dmesg | grep '" + hostNum + ": new' | tail -1");
 
     if (!dmesgLine.empty()) {
         // Check for UHS (ultra high speed)
-        if (dmesgLine.find("ultra high speed") != std::string::npos) {
+        if (dmesgLine.find("ultra high speed") != std::string::npos ||
+            dmesgLine.find("UHS-I speed") != std::string::npos) {
             // UHS Speed Grade: U3 (SDR104), U1 (SDR50/DDR50), Class 10 (SDR25/SDR12)
             if (dmesgLine.find("SDR104") != std::string::npos) return "UHS-I U3 (104MB/s)";
             if (dmesgLine.find("SDR50") != std::string::npos) return "UHS-I U1 (50MB/s)";
