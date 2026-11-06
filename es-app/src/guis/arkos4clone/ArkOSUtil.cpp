@@ -17,10 +17,11 @@ std::string executeCommand(const std::string& cmd)
         result += buffer;
     }
     pclose(pipe);
-    // NOTE: trim() below only strips " \t", NOT the trailing newline that
-    // popen keeps. Exact string comparisons / set lookups on this value will
-    // fail with an invisible '\n'. See SdCardControl::sanitizeOneLine() for
-    // how to normalize single-line output before matching.
+    // trim() only strips " \t": drop the newline that ends a command's output
+    // first, or exact comparisons fail ("active\n" != "active" left the SSH
+    // toggles showing off).
+    while (!result.empty() && (result.back() == '\n' || result.back() == '\r'))
+        result.pop_back();
     return Utils::String::trim(result);
 }
 
