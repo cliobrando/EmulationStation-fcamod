@@ -839,6 +839,18 @@ int main(int argc, char* argv[])
 #endif
 
 		Renderer::swapBuffers();				
+
+		// First frame on screen: boot-settled.sh holds writeback and NetworkManager
+		// until this file appears, because a scattered write can block the card's
+		// reads for seconds while the UI is loading.
+		static bool firstFrameDone = false;
+		if (!firstFrameDone)
+		{
+			firstFrameDone = true;
+			FILE* ready = fopen("/tmp/es-ready", "w");
+			if (ready != nullptr)
+				fclose(ready);
+		}
 /*
 #ifdef WIN32	
 		int swapDuration = SDL_GetTicks() - swapStart;
